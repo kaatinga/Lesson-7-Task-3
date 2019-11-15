@@ -5,14 +5,14 @@ import (
 	"io"
 	"log"
 	"net"
-	"time"
+	"strings"
 )
 
-var command []byte
+var message []byte
 
 func main() {
-	command = make([]byte, 4)
-	commands := make(chan string, 1)
+	message = make([]byte, 40)
+	messages := make(chan string, 1)
 
 	fmt.Println("The server has started")
 
@@ -27,47 +27,31 @@ func main() {
 		log.Print(err)
 	}
 
-	// Запускаем читалку канала
-	go func(out <-chan string) {
-		for {
-			value := <-out
-			if value == "exit" {
-				log.Fatalln("An external command", value, "stopped the service")
-			}
-		}
-	}(commands)
-
 	// Раз есть соединение, запускаем читалку сокета
 	go func(c net.Conn, in chan<- string) {
 		for {
 			fmt.Println("Reading the socket...")
-			_, err = c.Read(command)
+			_, err = c.Read(message)
 			if err != nil {
 				log.Println(err)
 				return
 			}
-
-			if string(command) == "exit" {
-				fmt.Println("Received `exit` command!")
-				in <- "exit"
-			}
+			fmt.Println("Считали из сокета:", string(message))
+			in <- strings.TrimSpace(string(message))
+			message = make([]byte, 40) // Обнуляем
 		}
-	}(conn, commands)
+	}(conn, messages)
 
-	// Запускаем отправлялку времени
-	handleConn(conn)
-}
+	fmt.Println("A client connected to the server", conn.RemoteAddr())
 
-func handleConn(c net.Conn) {
-	defer c.Close()
-	fmt.Println("A client connected to the server", c.RemoteAddr())
+	// Запускаем читалку канала
 	for {
-		_, err := io.WriteString(c, time.Now().Format("15:04:05\n\r"))
+		value := <-messages
+		log.Println("A message received:", value)
+		_, err := io.WriteString(conn, value)
 		if err != nil {
-			fmt.Println("The client", c.RemoteAddr(), "has disconnected")
+			fmt.Println("The client", conn.RemoteAddr(), "has disconnected")
 			return
 		}
-
-		time.Sleep(5 * time.Second)
 	}
 }
