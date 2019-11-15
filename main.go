@@ -21,30 +21,44 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Ждём соединения (пока пусть 1 клиент)
+	conn, err := listener.Accept()
+	if err != nil {
+		log.Print(err)
+	}
+
+	// Запускаем читалку канала
 	go func(out <-chan string) {
 		for {
 			value := <-out
-			log.Fatalln("An external command", value, "stopped the service")
+			if value == "exit" {
+				log.Fatalln("An external command", value, "stopped the service")
+			}
 		}
 	}(commands)
 
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			log.Print(err)
-			continue
-		}
-		go func(c net.Conn) {
+	// Раз есть соединение, запускаем читалку сокета
+	go func(c net.Conn, in chan<- string) {
+		for {
+			fmt.Println("Reading the socket...")
 			_, err = c.Read(command)
 			if err != nil {
+				log.Println(err)
 				return
 			}
-		}(conn)
-		handleConn(conn, commands)
-	}
+
+			if string(command) == "exit" {
+				fmt.Println("Received `exit` command!")
+				in <- "exit"
+			}
+		}
+	}(conn, commands)
+
+	// Запускаем отправлялку времени
+	handleConn(conn)
 }
 
-func handleConn(c net.Conn, in chan<- string) {
+func handleConn(c net.Conn) {
 	defer c.Close()
 	fmt.Println("A client connected to the server", c.RemoteAddr())
 	for {
@@ -54,14 +68,6 @@ func handleConn(c net.Conn, in chan<- string) {
 			return
 		}
 
-		fmt.Println("Reading result:", string(command), ".")
-
-		if string(command) == "exit" {
-			fmt.Println("Received `exit` command!")
-			in <- "exit"
-		}
-
-		time.Sleep(1 * time.Second)
+		time.Sleep(5 * time.Second)
 	}
-
 }
