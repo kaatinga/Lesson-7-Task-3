@@ -24,7 +24,7 @@ func main() {
 	// Сообщение, пока ограничиваем 80 байтами
 	nameMaxLenght := 20
 	textMaxLenght := 60
-	message := make([]byte,nameMaxLenght+textMaxLenght)
+	message := make([]byte, nameMaxLenght+textMaxLenght)
 
 	// Переменная для хранения сообщений от сервера
 	messages := make(chan string, 1)
@@ -79,9 +79,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-		// Ну и собственно пробуем соединиться
+	// Ну и собственно пробуем соединиться
 	go func() {
-		time.Sleep(3*time.Second)
+		time.Sleep(3 * time.Second)
 
 		conn, err := net.Dial("tcp", "localhost:9000")
 		if err != nil {
@@ -90,14 +90,14 @@ func main() {
 		defer conn.Close()
 
 		// Добавляем дежурное сообщение в чат от системы (успех)
-		history.Append(tui.NewHBox(
-			tui.NewLabel(time.Now().Format("15:04")),
-			tui.NewPadder(1, 0, tui.NewLabel(fmt.Sprintf("<%s>", "System"))),
-			tui.NewLabel("Connection is established!"),
-			tui.NewSpacer(),
-		))
-
-
+		ui.Update(func() {
+			history.Append(tui.NewHBox(
+				tui.NewLabel(time.Now().Format("15:04")),
+				tui.NewPadder(1, 0, tui.NewLabel(fmt.Sprintf("<%s>", "System"))),
+				tui.NewLabel("Connection is established!"),
+				tui.NewSpacer(),
+			))
+		})
 
 		// Добавлялка сообщений на экран
 		go func(out <-chan string, ui *tui.UI) {
@@ -188,6 +188,7 @@ func main() {
 	}
 }
 
+// Функция кодирует сообщения для передачи по сети
 func MakeByteSlice(string1, string2 string, maxLenString1, maxLenString2 int) (resultByteSlice []byte) {
 	resultByteSlice = make([]byte, maxLenString1+maxLenString2)
 	if len(string1) > maxLenString1 {
@@ -204,6 +205,7 @@ func MakeByteSlice(string1, string2 string, maxLenString1, maxLenString2 int) (r
 	return
 }
 
+// Функция декодирует сообщения для вывода
 func DecodeByteSlice(byteSlice []byte) (text1, text2 string) {
 	nameLen1 := int(byteSlice[0])
 	text1 = string(byteSlice[1 : nameLen1+1])
