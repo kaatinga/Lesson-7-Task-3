@@ -7,21 +7,10 @@ import (
 	"net"
 )
 
-var message []byte
-
-var text string
-var name string
-
-var connections []*net.Conn
-
-var users map[string]string
+var connections []*net.Conn // Временный колхоз
 
 func main() {
-	message = make([]byte, 80)
-
 	messages := make(chan string, 1)
-
-	users = make(map[string]string, 10)
 
 	fmt.Println("The server has started")
 
@@ -43,8 +32,12 @@ func main() {
 
 			// Раз есть соединение, запускаем читалку сокета
 			go func(c net.Conn, in chan<- string) {
+
+				var message []byte // Сюда мы будем временно записывать массив байтов
+
 				for {
 					fmt.Println("Reading the socket...")
+					message = make([]byte, 80) // Обнуляем
 					_, err = c.Read(message)
 					if err != nil {
 						log.Println(err)
@@ -52,13 +45,16 @@ func main() {
 					}
 
 					in <- string(message)
-					message = make([]byte, 80) // Обнуляем
 				}
 			}(conn, messages)
 		}
 	}()
 
 	// Запускаем читалку канала
+
+	var text string // Переменная хранит текст сообщения
+	var name string // Переменная хранит имя пользователя
+
 	for {
 		value := <-messages
 		name, text = DecodeByteSlice([]byte(value))
@@ -75,6 +71,7 @@ func main() {
 	}
 }
 
+// Функция декодирует сообщения для вывода в лог
 func DecodeByteSlice(byteSlice []byte) (text1, text2 string) {
 	nameLen1 := int(byteSlice[0])
 	text1 = string(byteSlice[1 : nameLen1+1])
