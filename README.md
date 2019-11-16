@@ -1,2 +1,2 @@
-# A netword chat example
+# A network chat example
 Using goroutines
