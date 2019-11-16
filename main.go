@@ -5,14 +5,23 @@ import (
 	"io"
 	"log"
 	"net"
-	"strings"
 )
 
 var message []byte
 
+var text string
+var name string
+
+var connections []*net.Conn
+
+var users map[string]string
+
 func main() {
-	message = make([]byte, 40)
+	message = make([]byte, 80)
+
 	messages := make(chan string, 1)
+
+	users = make(map[string]string, 10)
 
 	fmt.Println("The server has started")
 
@@ -21,37 +30,55 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Ждём соединения (пока пусть 1 клиент)
-	conn, err := listener.Accept()
-	if err != nil {
-		log.Print(err)
-	}
-
-	// Раз есть соединение, запускаем читалку сокета
-	go func(c net.Conn, in chan<- string) {
+	go func() {
 		for {
-			fmt.Println("Reading the socket...")
-			_, err = c.Read(message)
+			fmt.Println("Ждём соединения")
+			conn, err := listener.Accept()
 			if err != nil {
-				log.Println(err)
-				return
+				log.Print(err)
 			}
-			fmt.Println("Считали из сокета:", string(message))
-			in <- strings.TrimSpace(string(message))
-			message = make([]byte, 40) // Обнуляем
-		}
-	}(conn, messages)
+			fmt.Println("A new user has connected to the server:", conn.RemoteAddr())
+			connections = append(connections, &conn) // Переделать на канал!
+			fmt.Println(connections)
 
-	fmt.Println("A client connected to the server", conn.RemoteAddr())
+			// Раз есть соединение, запускаем читалку сокета
+			go func(c net.Conn, in chan<- string) {
+				for {
+					fmt.Println("Reading the socket...")
+					_, err = c.Read(message)
+					if err != nil {
+						log.Println(err)
+						c.Close()
+					}
+
+					in <- string(message)
+					message = make([]byte, 80) // Обнуляем
+				}
+			}(conn, messages)
+		}
+	}()
 
 	// Запускаем читалку канала
 	for {
 		value := <-messages
-		log.Println("A message received:", value)
-		_, err := io.WriteString(conn, value)
-		if err != nil {
-			fmt.Println("The client", conn.RemoteAddr(), "has disconnected")
-			return
+		name, text = DecodeByteSlice([]byte(value))
+		log.Println("A message from user", name, "received:", text)
+
+		// Broadcaster
+		for _, conn := range connections {
+			_, err := io.WriteString(*conn, value)
+			if err != nil {
+				fmt.Println("The client", (*conn).RemoteAddr(), "has disconnected")
+				return
+			}
 		}
 	}
+}
+
+func DecodeByteSlice(byteSlice []byte) (text1, text2 string) {
+	nameLen1 := int(byteSlice[0])
+	text1 = string(byteSlice[1 : nameLen1+1])
+	nameLen2 := int(byteSlice[nameLen1+1])
+	text2 = string(byteSlice[nameLen1+2 : nameLen1+2+nameLen2])
+	return
 }
