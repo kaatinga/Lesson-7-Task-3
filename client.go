@@ -17,7 +17,6 @@ type post struct {
 }
 
 var posts = make([]post, 2, 100)
-var name string
 
 func main() {
 
@@ -148,29 +147,35 @@ func main() {
 			}
 		}(messages, conn)
 
+		var name string // Тут мы храним имя пользователя чата
+		var text string // Тут мы храним сообщение перед записью в сокет
+
 		input.OnSubmit(func(e *tui.Entry) {
 
 			// Если поле ввода не пустое
 			if e.Text() != "" {
+
 				if name == "" {
 					users <- e.Text()
 					name = e.Text()
+					text = "Connected to the chat!"
 				} else {
-
-					// Отправляем на сервер сообщение
-					_, err := conn.Write(MakeByteSlice(name, e.Text(), nameMaxLenght, textMaxLenght))
-					if err != nil {
-						history.Append(tui.NewHBox(
-							tui.NewLabel(time.Now().Format("15:04")),
-							tui.NewPadder(1, 0, tui.NewLabel(fmt.Sprintf("<%s>", "john"))),
-							tui.NewLabel(err.Error()),
-							tui.NewSpacer(),
-						))
-						time.Sleep(5 * time.Second)
-						return
-					}
-
+					text = e.Text()
 				}
+
+				// Отправляем на сервер сообщение
+				_, err := conn.Write(MakeByteSlice(name, text, nameMaxLenght, textMaxLenght))
+				if err != nil {
+					history.Append(tui.NewHBox(
+						tui.NewLabel(time.Now().Format("15:04")),
+						tui.NewPadder(1, 0, tui.NewLabel(fmt.Sprintf("<%s>", "System"))),
+						tui.NewLabel(err.Error()),
+						tui.NewSpacer(),
+					))
+					time.Sleep(5 * time.Second)
+					return
+				}
+
 				input.SetText("") // Обнуляем поле ввода
 			}
 
