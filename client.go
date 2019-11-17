@@ -18,12 +18,15 @@ type post struct {
 
 var posts = make([]post, 2, 100)
 
+var userList map[int]string
+
 func main() {
 
 	// Сообщение, пока ограничиваем 80 байтами
 	nameMaxLenght := 20
 	textMaxLenght := 60
 	message := make([]byte, nameMaxLenght+textMaxLenght)
+	userList = make(map[int]string, 100)
 
 	// Переменная для хранения сообщений от сервера
 	messages := make(chan string, 1)
@@ -36,7 +39,7 @@ func main() {
 	// Рисуем GUI. Левая панель с юзерами
 	sidebar := tui.NewVBox()
 	sidebar.SetTitle("Chat User List")
-	sidebar.Insert(0, tui.NewLabel("There are no users yet"))
+	sidebar.Insert(0, tui.NewLabel("                      "))
 	sidebar.SetBorder(true)
 
 	// Рисуем GUI. Правая панель, чат
@@ -122,21 +125,26 @@ func main() {
 		// Добавлялка-обновлялка юзеров на экране
 		go func(out <-chan string, ui *tui.UI) {
 			for {
-				var readName string
-				readName = <-users
+				var name string
+				name = <-users
 
-				// Refresh'илка сайдбара
-				(*ui).Update(func() {
-					inputBox.SetTitle("Enter your message")
-					sidebar.Remove(0)
-					sidebar.Insert(0, tui.NewLabel(readName+"             "))
-				})
+				ok, index := FindUser(name)
+				if !ok {
+					userList[index+1] = name
 
+					// Refresh'илка сайдбара
+					(*ui).Update(func() {
+						inputBox.SetTitle("Enter your message")
+						sidebar.Remove(index+1)
+						sidebar.Insert(index+1, tui.NewLabel(name))
+					})
+				}
 			}
 		}(users, &ui)
 
 		// Запускаем читалку сообщений с сервера
 		go func(in chan<- string, c net.Conn) {
+
 			for {
 				_, err = c.Read(message) // Ждём и вычитываем сообщение с сервера
 				if err != nil {
@@ -144,7 +152,11 @@ func main() {
 					return
 				}
 				in <- string(message)
+
+				name, _ := DecodeByteSlice(message)
+				users <- name
 			}
+
 		}(messages, conn)
 
 		var name string // Тут мы храним имя пользователя чата
@@ -156,9 +168,8 @@ func main() {
 			if e.Text() != "" {
 
 				if name == "" {
-					users <- e.Text()
 					name = e.Text()
-					text = "Connected to the chat!"
+					text = "Entered the chat!"
 				} else {
 					text = e.Text()
 				}
@@ -217,4 +228,19 @@ func DecodeByteSlice(byteSlice []byte) (text1, text2 string) {
 	nameLen2 := int(byteSlice[nameLen1+1])
 	text2 = string(byteSlice[nameLen1+2 : nameLen1+2+nameLen2])
 	return
+}
+
+// Поиск юзера в карте. Если найден даёт true и его номер, если нет, то false и максимальный индекс карты
+func FindUser(name string) (ok bool, key int) {
+	var value string
+	var maxKey int
+	for key, value = range userList {
+		if value == name {
+			return true, key
+		}
+		if key > maxKey {
+			maxKey = key
+		}
+	}
+	return false, maxKey
 }

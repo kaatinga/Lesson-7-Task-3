@@ -71,7 +71,7 @@ func main() {
 	}
 }
 
-// Функция декодирует сообщения для вывода в лог
+// Функция декодирует сообщения для вывода
 func DecodeByteSlice(byteSlice []byte) (text1, text2 string) {
 	nameLen1 := int(byteSlice[0])
 	text1 = string(byteSlice[1 : nameLen1+1])
