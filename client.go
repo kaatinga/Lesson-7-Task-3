@@ -137,6 +137,7 @@ func main() {
 						inputBox.SetTitle("Enter your message")
 						sidebar.Remove(index+1)
 						sidebar.Insert(index+1, tui.NewLabel(name))
+						sidebar.Append(tui.NewSpacer())
 					})
 				}
 			}
